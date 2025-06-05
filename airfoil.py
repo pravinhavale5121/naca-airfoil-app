@@ -2,41 +2,33 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from scipy.special import comb
 from io import BytesIO
 
-st.set_page_config(page_title="NACA Airfoil Generator", layout="centered")
-
-st.title("NACA 4-Digit Airfoil Generator")
-
-# Step 1: User Inputs
-naca_digits = st.text_input("Enter NACA 4-digit number (e.g., 2412)", max_chars=4)
-chord_length = st.number_input("Enter Chord Length (unit)", min_value=0.01, max_value=100.0, value=1.0)
-
-# Step 2: Coordinate Generation Function
-def generate_naca4_coordinates(naca, chord=1.0, num_points=100):
-    m = int(naca[0]) / 100
-    p = int(naca[1]) / 10
-    t = int(naca[2:]) / 100
-
+def naca4(m, p, t, chord, num_points=100):
     x = np.linspace(0, 1, num_points)
-    yt = 5 * t * (0.2969 * np.sqrt(x) -
-                  0.1260 * x -
-                  0.3516 * x**2 +
-                  0.2843 * x**3 -
-                  0.1015 * x**4)
+    yt = 5 * t * (
+        0.2969 * np.sqrt(x)
+        - 0.1260 * x
+        - 0.3516 * x**2
+        + 0.2843 * x**3
+        - 0.1015 * x**4
+    )
 
-    yc = np.zeros_like(x)
-    dyc_dx = np.zeros_like(x)
+    yc = np.where(
+        x < p,
+        m / (p ** 2) * (2 * p * x - x ** 2),
+        m / ((1 - p) ** 2) * ((1 - 2 * p) + 2 * p * x - x ** 2)
+    )
 
-    for i in range(len(x)):
-        if x[i] < p and p != 0:
-            yc[i] = m / (p**2) * (2 * p * x[i] - x[i]**2)
-            dyc_dx[i] = 2 * m / (p**2) * (p - x[i])
-        elif p != 0:
-            yc[i] = m / ((1 - p)**2) * ((1 - 2 * p) + 2 * p * x[i] - x[i]**2)
-            dyc_dx[i] = 2 * m / ((1 - p)**2) * (p - x[i])
+    dyc_dx = np.where(
+        x < p,
+        2 * m / p ** 2 * (p - x),
+        2 * m / (1 - p) ** 2 * (p - x)
+    )
 
     theta = np.arctan(dyc_dx)
+
     xu = x - yt * np.sin(theta)
     yu = yc + yt * np.cos(theta)
     xl = x + yt * np.sin(theta)
@@ -47,32 +39,41 @@ def generate_naca4_coordinates(naca, chord=1.0, num_points=100):
 
     return x_coords, y_coords
 
-# Step 3: On Generate
-if st.button("Generate Airfoil") and len(naca_digits) == 4 and naca_digits.isdigit():
-    x_vals, y_vals = generate_naca4_coordinates(naca_digits, chord=chord_length)
+# Placeholder for 5-digit and 6-digit — use proper generation later
+def naca_placeholder(series, chord, num_points=100):
+    x = np.linspace(0, 1, num_points)
+    y = 0.1 * np.sin(2 * np.pi * x)
+    return x * chord, y * chord
+
+# Streamlit UI
+st.title("✈️ NACA Airfoil Generator")
+series = st.selectbox("Select NACA Series", ["4-digit", "5-digit", "6-digit"])
+
+digits = st.text_input("Enter NACA Digits (e.g., 2412 for 4-digit):")
+chord = st.number_input("Chord Length (in meters)", min_value=0.01, value=1.0)
+
+if st.button("Generate Airfoil"):
+    if series == "4-digit" and len(digits) == 4 and digits.isdigit():
+        m = int(digits[0]) / 100
+        p = int(digits[1]) / 10
+        t = int(digits[2:]) / 100
+        x, y = naca4(m, p, t, chord)
+    elif series in ["5-digit", "6-digit"] and digits.isdigit():
+        x, y = naca_placeholder(series, chord)
+    else:
+        st.error("Invalid input. Please check your digits.")
+        st.stop()
 
     # Plotting
     fig, ax = plt.subplots()
-    ax.plot(x_vals, y_vals, label=f"NACA {naca_digits}")
-    ax.axis("equal")
-    ax.grid(True)
-    ax.set_xlabel("x (m)")
-    ax.set_ylabel("y (m)")
-    ax.set_title(f"NACA {naca_digits} Airfoil (Chord = {chord_length} m)")
+    ax.plot(x, y)
+    ax.set_aspect("equal")
+    ax.set_title(f"NACA {digits} Airfoil")
     st.pyplot(fig)
 
-    # Save to Excel
-    df = pd.DataFrame({'x (m)': x_vals, 'y (m)': y_vals})
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='Airfoil_Coords')
-    excel_data = output.getvalue()
+    # Download as Excel
+    df = pd.DataFrame({"X": x, "Y": y})
+    excel_file = BytesIO()
+    df.to_excel(excel_file, index=False, engine='openpyxl')
+    st.download_button("📥 Download Coordinates (Excel)", excel_file.getvalue(), file_name=f"NACA_{digits}_coords.xlsx")
 
-    st.download_button(
-        label="📥 Click here to download airfoil coordinates (Excel)",
-        data=excel_data,
-        file_name=f"NACA_{naca_digits}_chord_{chord_length}m.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-elif len(naca_digits) == 4 and not naca_digits.isdigit():
-    st.error("Please enter digits only (e.g., 2412)")
