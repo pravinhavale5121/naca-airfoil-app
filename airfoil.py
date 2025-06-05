@@ -10,7 +10,7 @@ st.title("NACA 4-Digit Airfoil Generator")
 
 # Step 1: User Inputs
 naca_digits = st.text_input("Enter NACA 4-digit number (e.g., 2412)", max_chars=4)
-chord_length = st.number_input("Enter Chord Length (in meters)", min_value=0.01, max_value=100.0, value=1.0)
+chord_length = st.number_input("Enter Chord Length (unit)", min_value=0.01, max_value=100.0, value=1.0)
 
 # Step 2: Coordinate Generation Function
 def generate_naca4_coordinates(naca, chord=1.0, num_points=100):
@@ -58,7 +58,7 @@ if st.button("Generate Airfoil") and len(naca_digits) == 4 and naca_digits.isdig
     ax.grid(True)
     ax.set_xlabel("x (m)")
     ax.set_ylabel("y (m)")
-    ax.set_title(f"NACA {naca_digits} Airfoil (Chord = {chord_length} unit)")
+    ax.set_title(f"NACA {naca_digits} Airfoil (Chord = {chord_length} m)")
     st.pyplot(fig)
 
     # Save to Excel
