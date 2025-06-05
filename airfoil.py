@@ -8,9 +8,12 @@ st.set_page_config(page_title="NACA Airfoil Generator", layout="centered")
 
 st.title("NACA 4-Digit Airfoil Generator")
 
+# Step 1: User Inputs
 naca_digits = st.text_input("Enter NACA 4-digit number (e.g., 2412)", max_chars=4)
+chord_length = st.number_input("Enter Chord Length (in meters)", min_value=0.01, max_value=100.0, value=1.0)
 
-def generate_naca4_coordinates(naca, num_points=100):
+# Step 2: Coordinate Generation Function
+def generate_naca4_coordinates(naca, chord=1.0, num_points=100):
     m = int(naca[0]) / 100
     p = int(naca[1]) / 10
     t = int(naca[2:]) / 100
@@ -39,24 +42,27 @@ def generate_naca4_coordinates(naca, num_points=100):
     xl = x + yt * np.sin(theta)
     yl = yc - yt * np.cos(theta)
 
-    x_coords = np.concatenate([xu[::-1], xl[1:]])
-    y_coords = np.concatenate([yu[::-1], yl[1:]])
+    x_coords = np.concatenate([xu[::-1], xl[1:]]) * chord
+    y_coords = np.concatenate([yu[::-1], yl[1:]]) * chord
 
     return x_coords, y_coords
 
+# Step 3: On Generate
 if st.button("Generate Airfoil") and len(naca_digits) == 4 and naca_digits.isdigit():
-    x_vals, y_vals = generate_naca4_coordinates(naca_digits)
+    x_vals, y_vals = generate_naca4_coordinates(naca_digits, chord=chord_length)
 
+    # Plotting
     fig, ax = plt.subplots()
     ax.plot(x_vals, y_vals, label=f"NACA {naca_digits}")
     ax.axis("equal")
     ax.grid(True)
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
-    ax.set_title(f"NACA {naca_digits} Airfoil")
+    ax.set_xlabel("x (m)")
+    ax.set_ylabel("y (m)")
+    ax.set_title(f"NACA {naca_digits} Airfoil (Chord = {chord_length} m)")
     st.pyplot(fig)
 
-    df = pd.DataFrame({'x': x_vals, 'y': y_vals})
+    # Save to Excel
+    df = pd.DataFrame({'x (m)': x_vals, 'y (m)': y_vals})
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df.to_excel(writer, index=False, sheet_name='Airfoil_Coords')
@@ -65,7 +71,7 @@ if st.button("Generate Airfoil") and len(naca_digits) == 4 and naca_digits.isdig
     st.download_button(
         label="📥 Click here to download airfoil coordinates (Excel)",
         data=excel_data,
-        file_name=f"NACA_{naca_digits}_coordinates.xlsx",
+        file_name=f"NACA_{naca_digits}_chord_{chord_length}m.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 elif len(naca_digits) == 4 and not naca_digits.isdigit():
