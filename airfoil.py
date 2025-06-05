@@ -58,7 +58,7 @@ if st.button("Generate Airfoil") and len(naca_digits) == 4 and naca_digits.isdig
     ax.grid(True)
     ax.set_xlabel("x (m)")
     ax.set_ylabel("y (m)")
-    ax.set_title(f"NACA {naca_digits} Airfoil (Chord = {chord_length} m)")
+    ax.set_title(f"NACA {naca_digits} Airfoil (Chord = {chord_length} unit)")
     st.pyplot(fig)
 
     # Save to Excel
